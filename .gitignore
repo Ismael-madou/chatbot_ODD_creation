@@ -1,0 +1,41 @@
+# Exclude Python virtual environments
+venv/
+
+# Exclude Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Exclude Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Exclude system files
+.DS_Store
+Thumbs.db
+
+# Exclude cache and model files
+cache/
+*.pkl
+
+# Exclude environment and IDE settings
+.env
+*.env
+.vscode/
+.idea/
+
+# Exclude log files
+*.log
+
+# Exclude old or temporary files
+old.txt
+*.tmp
+
+# Exclude images (if not essential to code)
+logo_crous.PNG
+logo_ODD.PNG
+logo_urca.PNG
+objectifs_ODD.PNG
+
+# Exclude requirements if not needed (uncomment if not used)
+# requirements.txt

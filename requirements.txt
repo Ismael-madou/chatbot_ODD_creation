@@ -1,0 +1,12 @@
+# Recommandé : Python 3.10 ou 3.11
+streamlit>=1.28.0
+sentence-transformers==2.2.2
+farm-haystack==1.21.2
+openai>=1.0.0
+python-dotenv>=1.0.0
+torch>=2.0.0
+# transformers==4.30.2
+numpy>=1.24.0
+pandas>=2.0.0
+pydantic==1.10.13
+sentencepiece>=0.1.99 
