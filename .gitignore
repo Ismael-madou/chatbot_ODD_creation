@@ -1,3 +1,6 @@
+# Exclure les dossiers de cache Python et les paramètres VS Code
+__pycache__/
+.vscode/
 # Exclude Python virtual environments
 venv/
 
