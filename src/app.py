@@ -1,35 +1,41 @@
-import streamlit as st
-from src.chat_bot import chercher_odd, formater_reponse_odd, clear_cache, get_cache_info
+
+
+# All imports at the very top
+from chat_bot import chercher_odd, formater_reponse_odd, clear_cache, get_cache_info
 from sentence_transformers import SentenceTransformer, util
+from sdg_data import SDGDataLoader
+import streamlit as st
 import os
 import sys
-# ...suite du code...
+import json
+import pandas as pd
+import requests
+import plotly.express as px
 
 
-# Empêche l'exécution directe de ce fichier
+
+# Prevent direct execution of this file
 if __name__ == "__main__":
-    print("\n[ERREUR] : Merci de lancer l'application via main.py à la racine du projet :\n\n    streamlit run main.py\n\nNe lancez pas src/app.py directement.\n")
+    print("\n[ERROR]: Please launch the application via main.py at the project root:\n\n    streamlit run main.py\n\nDo not run src/app.py directly.\n")
     sys.exit(1)
 
-# Détermine la racine du projet (dossier contenant main.py)
+# Determine the project root (folder containing main.py)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 """
-app.py - Interface principale Streamlit pour le Chatbot ODD
+app.py - Main Streamlit interface for the SDG Chatbot
 
-Ce script lance l'interface utilisateur du chatbot ODD, permettant à l'utilisateur de poser des questions
-sur les Objectifs de Développement Durable (ODD) et d'obtenir des réponses générées par IA.
-Il gère aussi l'affichage, l'historique de chat, la gestion du cache et les exemples de questions.
+This script launches the user interface for the SDG Chatbot, allowing users to ask questions
+about the Sustainable Development Goals (SDGs) and get AI-generated answers.
+It also manages the display, chat history, cache management, and example questions.
 
-
-
-Fonctions principales :
-- Affichage de l'interface utilisateur Streamlit
-- Gestion de l'historique de chat et des suggestions
-- Appel aux fonctions du backend pour la recherche et la génération de réponses
-- Gestion du cache et des statistiques
+Main features:
+- Streamlit user interface display
+- Chat history and suggestions management
+- Calls backend functions for search and answer generation
+- Cache and statistics management
 """
 
 
@@ -42,22 +48,23 @@ st.set_page_config(
 )
     
 
-# Initialisation sûre de la langue
+
+# Safe initialization of language
 if "lang" not in st.session_state:
     st.session_state["lang"] = "Français"
 
-# Toujours utiliser la valeur de session pour la langue
+# Always use the session value for language
 lang = st.session_state.get("lang", "Français")
 
 
 
 
-# Réinitialisation ultra-sécurisée lors du changement de langue : on ne touche qu'à la langue
+
+# Ultra-safe reset on language change: only update language
 def reset_on_lang_switch():
-    pass  # Ne rien réinitialiser ici, juste laisser Streamlit gérer le changement de clé
+    pass  # Do not reset anything, let Streamlit handle the key change
 
-# Sélecteur de langue unique en haut de page
-
+# Unique language selector at the top of the page
 lang_select = st.selectbox(
     "🌐 Language / Langue",
     ["English", "Français"],
@@ -71,14 +78,15 @@ lang = st.session_state["lang"]
     
 
 
-# Mode accessibilité (contraste élevé)
+
+# Accessibility mode (high contrast)
 if "accessibility" not in st.session_state:
     st.session_state["accessibility"] = False
-accessibility = st.sidebar.checkbox("Mode accessibilité (contraste élevé)", value=st.session_state["accessibility"], key="accessibility_checkbox")
+accessibility = st.sidebar.checkbox("Accessibility mode (high contrast)", value=st.session_state["accessibility"], key="accessibility_checkbox")
 if accessibility != st.session_state["accessibility"]:
     st.session_state["accessibility"] = accessibility
 
-# Appliquer le style contraste élevé si activé
+# Apply high contrast style if enabled
 if accessibility:
     st.markdown("""
         <style>
@@ -92,6 +100,7 @@ if accessibility:
 
 
 
+
 # Header with title, logo, and quiz button
 header_col1, header_col2, header_col3 = st.columns([4, 1, 1])
 with header_col1:
@@ -100,7 +109,7 @@ with header_col1:
         st.markdown("Ask a question about the Sustainable Development Goals.")
     else:
         st.title("Chatbot ODD 🌍")
-        st.markdown("Pose une question sur les Objectifs de Développement Durable.")
+        st.markdown("Ask a question about the Sustainable Development Goals.")
 with header_col2:
     logo_path = os.path.join(PROJECT_ROOT, "pictures", "logo_ODD.png")
     if os.path.exists(logo_path):
@@ -109,7 +118,7 @@ with header_col3:
     if st.button("🎲 Quiz ODD"):
         st.session_state["quiz_mode"] = True
 
-# Feedback utilisateur (👍/👎)
+# User feedback (👍/👎)
 def feedback_buttons(idx):
     col1, col2 = st.columns([1,1])
     with col1:
@@ -119,7 +128,8 @@ def feedback_buttons(idx):
         if st.button("👎", key=f"dislike_{idx}"):
             st.session_state.setdefault("feedback", []).append({"msg": idx, "feedback": "dislike"})
 
-# Texte explicatif sur les ODD (bilingue dynamique)
+
+# Explanatory text about SDGs (dynamic bilingual)
 st.markdown(
     """
     <div style='font-size: 1.1em; background-color: #f0f2f6; padding: 15px; border-radius: 8px;'>
@@ -127,7 +137,7 @@ st.markdown(
     </div>
     """.format(
         "The Sustainable Development Goals (SDGs) are a call to action for all countries—poor, rich, and middle-income—to promote prosperity while protecting the planet. They recognize that ending poverty must go hand-in-hand with strategies that build economic growth and address a range of social needs including education, health, social protection, and job opportunities, while tackling climate change and environmental protection." if lang == "English" else
-        "Les objectifs de développement durable sont un appel à l'action de tous les pays – pauvres, riches et à revenu intermédiaire – afin de promouvoir la prospérité tout en protégeant la planète. Ils reconnaissent que mettre fin à la pauvreté doit aller de pair avec des stratégies qui développent la croissance économique et répondent à une série de besoins sociaux, notamment l'éducation, la santé, la protection sociale et les possibilités d'emploi, tout en luttant contre le changement climatique et la protection de l'environnement."
+        "The Sustainable Development Goals (SDGs) are a call to action for all countries—poor, rich, and middle-income—to promote prosperity while protecting the planet. They recognize that ending poverty must go hand-in-hand with strategies that build economic growth and address a range of social needs including education, health, social protection, and job opportunities, while tackling climate change and environmental protection."
     ),
     unsafe_allow_html=True
 )
@@ -135,12 +145,13 @@ st.markdown(
 st.markdown("---")
 
 
-# Affichage des cartes ODD dynamiques
 
-# --- Accessibilité : slider taille du texte ---
-if "font_size" not in st.session_state:
-    st.session_state["font_size"] = 1.0
-font_size = st.sidebar.slider("Taille du texte", 0.8, 2.0, st.session_state["font_size"], 0.1, key="font_size_slider")
+# Display dynamic SDG cards
+
+# --- Accessibility: text size slider ---
+from sdg_data import SDGDataLoader
+st.session_state["font_size"] = 1.0
+font_size = st.sidebar.slider("Text size", 0.8, 2.0, st.session_state["font_size"], 0.1, key="font_size_slider")
 if font_size != st.session_state["font_size"]:
     st.session_state["font_size"] = font_size
 st.markdown(f"<style>html, body, .stApp {{ font-size: {st.session_state['font_size']}em !important; }}</style>", unsafe_allow_html=True)
@@ -221,9 +232,7 @@ st.markdown(
 )
 
 
-# Utilisation exclusive des données Excel pour le classement ODD
-# --- Optimisation : cache Streamlit pour Excel ---
-from src.sdg_data import SDGDataLoader
+from sdg_data import SDGDataLoader
 @st.cache_data
 def load_excel_loader(excel_path):
     return SDGDataLoader(excel_path)

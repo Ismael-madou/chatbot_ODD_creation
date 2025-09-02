@@ -1,53 +1,39 @@
 """
-chat_bot.py - Logique principale du Chatbot ODD
+chat_bot.py - Main logic for the SDG Chatbot
 
-Ce module gère la logique de recherche, le matching, le fallback, la gestion du cache et l'intégration avec Haystack et Sentence Transformers.
+This module handles search logic, matching, fallback, cache management, and integration with Haystack and Sentence Transformers.
 
-Fonctions principales :
-- initialize_chatbot : Initialise tous les modèles, données et caches nécessaires.
-- chercher_odd : Recherche la réponse la plus pertinente à une question utilisateur.
-- formater_reponse_odd : Formate la réponse à afficher à l'utilisateur.
-- clear_cache : Vide le cache local.
-- get_cache_info : Retourne des infos sur le cache.
+Main functions:
+- initialize_chatbot: Initializes all required models, data, and caches.
+- chercher_odd: Finds the most relevant answer to a user question.
+- formater_reponse_odd: Formats the answer to display to the user.
+- clear_cache: Clears the local cache.
+- get_cache_info: Returns cache information.
 
-Variables globales :
+Global variables:
 - model, document_store, retriever, odds, faq, odd_documents, odd_embeddings
 """
+
+# All 'from ... import ...' statements at the top
+from sentence_transformers import SentenceTransformer, util
+from haystack.document_stores import InMemoryDocumentStore
+from haystack.nodes import BM25Retriever
+from transformers import pipeline
+from llm_integration import llm_integration
+from model_cache import model_cache
+
 import json
 import re
 import os
 import time
 from typing import Any, Dict, Optional, List, Union
 
-# Détermine la racine du projet (dossier contenant main.py)
+# Determine the project root (folder containing main.py)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-try:
-    from sentence_transformers import SentenceTransformer, util
-except ImportError:
-    SentenceTransformer = None
-    util = None
-try:
-    from haystack.document_stores import InMemoryDocumentStore
-    from haystack.nodes import BM25Retriever
-except ImportError:
-    InMemoryDocumentStore = None
-    BM25Retriever = None
-try:
-    from transformers import pipeline
-except ImportError:
-    pipeline = None
 
-try:
-    from llm_integration import llm_integration
-except ImportError:
-    llm_integration = None
-try:
-    from model_cache import model_cache
-except ImportError:
-    model_cache = None
 
-# Variables globales pour les modèles et données
+# Global variables for models and data
 model: Optional[Any] = None
 document_store: Optional[Any] = None
 retriever: Optional[Any] = None
@@ -56,43 +42,43 @@ faq: Optional[List[Dict[str, Any]]] = None
 odd_documents: Optional[List[str]] = None
 odd_embeddings: Any = None
 
-# Charger le pipeline LLM local une seule fois
+# Load the local LLM pipeline only once
 _llm_pipeline = None
 def get_llm_pipeline() -> any:
     """
-    Charge et retourne le pipeline LLM local (modèle text2text-generation).
+    Load and return the local LLM pipeline (text2text-generation model).
     Returns:
-        pipeline ou None : pipeline transformers prêt à l'emploi ou None si indisponible.
+        pipeline or None: Ready-to-use transformers pipeline or None if unavailable.
     """
     global _llm_pipeline
     if pipeline is None:
-        print("[ERREUR] transformers n'est pas installé. Réponse LLM désactivée.")
+        print("[ERROR] transformers is not installed. LLM response disabled.")
         return None
     if _llm_pipeline is None:
         try:
-            # Modèle ultra-léger pour CPU
+            # Ultra-lightweight model for CPU
             _llm_pipeline = pipeline("text2text-generation", model="google/flan-t5-small", device=-1)
         except Exception as e:
-            print(f"[ERREUR] Impossible de charger le pipeline LLM: {e}")
+            print(f"[ERROR] Unable to load LLM pipeline: {e}")
             _llm_pipeline = None
     return _llm_pipeline
 
 def generer_reponse_llm(question: str) -> str:
     """
-    Génère une réponse à partir d'une question en utilisant le pipeline LLM local.
+    Generate an answer from a question using the local LLM pipeline.
     Args:
-        question (str): La question utilisateur.
+        question (str): The user's question.
     Returns:
-        str: Réponse générée ou message d'erreur.
+        str: Generated answer or error message.
     """
     pipe = get_llm_pipeline()
     if pipe is None:
-        return "[ERREUR] LLM non disponible."
+        return "[ERROR] LLM not available."
     try:
         result = pipe(question, max_new_tokens=64, do_sample=True)
         return result[0].get('generated_text', str(result[0]))
     except Exception as e:
-        return f"[ERREUR LLM] {e}"
+        return f"[ERROR LLM] {e}"
 
 def initialize_chatbot() -> None:
     """

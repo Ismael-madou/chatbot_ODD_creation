@@ -1,9 +1,11 @@
+
+# All imports at the very top
 import pandas as pd
 import os
 
 class SDGDataLoader:
     def __init__(self, excel_path):
-        # Si le chemin n'est pas absolu, on le base sur la racine du projet
+        # If the path is not absolute, base it on the project root
         if not os.path.isabs(excel_path):
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
             excel_path = os.path.join(project_root, excel_path)
