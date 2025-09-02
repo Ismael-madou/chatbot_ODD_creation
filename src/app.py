@@ -1,20 +1,15 @@
 import streamlit as st
-# Affichage d'un message sur l'état du cache au démarrage
-from src.chat_bot import get_cache_info
-cache_info = get_cache_info()
-if cache_info and isinstance(cache_info, dict):
-    if cache_info.get('file_count', 0) > 0:
-        st.info(f"⚡ Cache détecté : {cache_info['file_count']} fichiers, {cache_info['total_size_mb']} MB. Démarrage accéléré.")
-    else:
-        st.warning("⏳ Premier démarrage : initialisation des modèles et du cache, cela peut prendre du temps.")
+from src.chat_bot import chercher_odd, formater_reponse_odd, clear_cache, get_cache_info
+from sentence_transformers import SentenceTransformer, util
 import os
 import sys
+# ...suite du code...
+
 
 # Empêche l'exécution directe de ce fichier
 if __name__ == "__main__":
     print("\n[ERREUR] : Merci de lancer l'application via main.py à la racine du projet :\n\n    streamlit run main.py\n\nNe lancez pas src/app.py directement.\n")
     sys.exit(1)
-
 
 # Détermine la racine du projet (dossier contenant main.py)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -28,8 +23,7 @@ Ce script lance l'interface utilisateur du chatbot ODD, permettant à l'utilisat
 sur les Objectifs de Développement Durable (ODD) et d'obtenir des réponses générées par IA.
 Il gère aussi l'affichage, l'historique de chat, la gestion du cache et les exemples de questions.
 
-Auteurs : [Votre nom]
-Date : [Date]
+
 
 Fonctions principales :
 - Affichage de l'interface utilisateur Streamlit
@@ -38,10 +32,6 @@ Fonctions principales :
 - Gestion du cache et des statistiques
 """
 
-import streamlit as st
-from src.chat_bot import chercher_odd, formater_reponse_odd, clear_cache, get_cache_info
-from sentence_transformers import SentenceTransformer, util
-import os
 
 
 # Page config
@@ -51,26 +41,32 @@ st.set_page_config(
     layout="wide"
 )
     
+
 # Initialisation sûre de la langue
 if "lang" not in st.session_state:
     st.session_state["lang"] = "Français"
-lang = st.session_state["lang"]
 
-# Réinitialisation automatique de l'état lors du changement de langue
+# Toujours utiliser la valeur de session pour la langue
+lang = st.session_state.get("lang", "Français")
+
+
+
+
+# Réinitialisation ultra-sécurisée lors du changement de langue : on ne touche qu'à la langue
 def reset_on_lang_switch():
-    st.session_state["messages"] = []
-    st.session_state["search_input"] = ""
-    st.session_state["quiz_mode"] = False
-    st.session_state["feedback"] = []
+    pass  # Ne rien réinitialiser ici, juste laisser Streamlit gérer le changement de clé
 
 # Sélecteur de langue unique en haut de page
+
 lang_select = st.selectbox(
     "🌐 Language / Langue",
     ["English", "Français"],
-    index=0 if st.session_state["lang"]=="English" else 1,
+    index=0 if st.session_state.get("lang", "Français")=="English" else 1,
+    key="lang_select",
     on_change=reset_on_lang_switch
 )
-st.session_state["lang"] = lang_select
+if lang_select != st.session_state.get("lang", "Français"):
+    st.session_state["lang"] = lang_select
 lang = st.session_state["lang"]
     
 
@@ -78,17 +74,14 @@ lang = st.session_state["lang"]
 # Mode accessibilité (contraste élevé)
 if "accessibility" not in st.session_state:
     st.session_state["accessibility"] = False
-accessibility = st.sidebar.checkbox("Mode accessibilité (contraste élevé)", value=st.session_state["accessibility"])
-st.session_state["accessibility"] = accessibility
+accessibility = st.sidebar.checkbox("Mode accessibilité (contraste élevé)", value=st.session_state["accessibility"], key="accessibility_checkbox")
+if accessibility != st.session_state["accessibility"]:
+    st.session_state["accessibility"] = accessibility
 
 # Appliquer le style contraste élevé si activé
 if accessibility:
     st.markdown("""
         <style>
-        body, .stApp, .stMarkdown, .stTextInput, .stButton, .stDataFrame, .stSidebar, .stSelectbox, .stChatMessage {
-            background-color: #000 !important;
-            color: #fff !important;
-        }
         .stButton>button { background: #222 !important; color: #fff !important; border: 2px solid #fff; }
         .stTextInput>div>input { background: #222 !important; color: #fff !important; }
         .stDataFrame { background: #111 !important; color: #fff !important; }
@@ -143,11 +136,26 @@ st.markdown("---")
 
 
 # Affichage des cartes ODD dynamiques
+
+# --- Accessibilité : slider taille du texte ---
+if "font_size" not in st.session_state:
+    st.session_state["font_size"] = 1.0
+font_size = st.sidebar.slider("Taille du texte", 0.8, 2.0, st.session_state["font_size"], 0.1, key="font_size_slider")
+if font_size != st.session_state["font_size"]:
+    st.session_state["font_size"] = font_size
+st.markdown(f"<style>html, body, .stApp {{ font-size: {st.session_state['font_size']}em !important; }}</style>", unsafe_allow_html=True)
+
+# --- Optimisation : cache Streamlit pour chargement JSON et Excel ---
 import json
+@st.cache_data
+def load_odd_data(json_path):
+    with open(json_path, encoding="utf-8") as f:
+        return json.load(f)
+
 odd_json_path = os.path.join(PROJECT_ROOT, "data", "odd_data_enriched_bilingual.json")
+odds = []
 if os.path.exists(odd_json_path):
-    with open(odd_json_path, encoding="utf-8") as f:
-        odd_data = json.load(f)
+    odd_data = load_odd_data(odd_json_path)
     odds = odd_data.get("odds", [])
     st.markdown(
         f"<h3 style='margin-top:30px;'>{'The 17 Sustainable Development Goals' if lang == 'English' else 'Les 17 Objectifs de Développement Durable'}</h3>",
@@ -155,14 +163,18 @@ if os.path.exists(odd_json_path):
     )
     # Affichage compact : 5 cartes par ligne, padding réduit
     card_cols = st.columns(5)
+    card_bg = "#111" if st.session_state.get("accessibility", False) else "#fff"
+    card_text = "#fff" if st.session_state.get("accessibility", False) else "#444"
+    card_title = "#fff" if st.session_state.get("accessibility", False) else "#0074d9"
+    card_border = "#fff" if st.session_state.get("accessibility", False) else "#e0e0e0"
     for idx, odd in enumerate(odds):
         col = card_cols[idx % 5]
         with col:
             st.markdown(f"""
-                <div style='background:#fff;border-radius:8px;border:1px solid #e0e0e0;padding:10px;margin-bottom:8px;box-shadow:0 1px 4px #0001; min-height:120px;'>
-                    <div style='font-size:1.1em;font-weight:bold;color:#0074d9;margin-bottom:2px;'>{'SDG' if lang == 'English' else 'ODD'} {odd['odd']}</div>
-                    <div style='font-size:0.98em;font-weight:600;margin-bottom:2px;'>{odd['title']['en'] if lang == 'English' else odd['title']['fr']}</div>
-                    <div style='font-size:0.90em;color:#444;'>{odd['description']['en'] if lang == 'English' else odd['description']['fr']}</div>
+                <div style='background:{card_bg};border-radius:8px;border:1px solid {card_border};padding:10px;margin-bottom:8px;box-shadow:0 1px 4px #0001; min-height:120px;'>
+                    <div style='font-size:1.1em;font-weight:bold;color:{card_title};margin-bottom:2px;'>{'SDG' if lang == 'English' else 'ODD'} {odd['odd']}</div>
+                    <div style='font-size:0.98em;font-weight:600;margin-bottom:2px;color:{card_text};'>{odd['title']['en'] if lang == 'English' else odd['title']['fr']}</div>
+                    <div style='font-size:0.90em;color:{card_text};'>{odd['description']['en'] if lang == 'English' else odd['description']['fr']}</div>
                 </div>
             """, unsafe_allow_html=True)
 else:
@@ -208,40 +220,64 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 # Utilisation exclusive des données Excel pour le classement ODD
+# --- Optimisation : cache Streamlit pour Excel ---
 from src.sdg_data import SDGDataLoader
+@st.cache_data
+def load_excel_loader(excel_path):
+    return SDGDataLoader(excel_path)
 excel_path = os.path.join(PROJECT_ROOT, "data", "SDR2025-data.xlsx")
-loader = SDGDataLoader(excel_path)
-latest_year = max(loader.get_years())
-classement_df = loader.get_global_score(years=[latest_year])
+loader = load_excel_loader(excel_path)
+years = sorted(loader.get_years())
+if "selected_year" not in st.session_state:
+    st.session_state["selected_year"] = years[-1]
+selected_year = st.sidebar.selectbox(
+    "Année des données" if st.session_state.get("lang", "Français") != "English" else "Data year",
+    years,
+    index=years.index(st.session_state["selected_year"]),
+    key="select_year"
+)
+if selected_year != st.session_state["selected_year"]:
+    st.session_state["selected_year"] = selected_year
+selected_year = st.session_state["selected_year"]
+classement_df = loader.get_global_score(years=[selected_year])
 classement_df = classement_df.rename(columns={"sdgi_s": "Indice ODD", "Country": "Pays"})
-st.markdown(f"<b>{'Country selection (exactly 5)' if lang == 'English' else 'Sélection de 5 pays'}:</b>", unsafe_allow_html=True)
+
+# --- Sélection libre de pays (minimum 2) ---
+st.markdown(f"<b>{'Country selection (at least 2)' if st.session_state.get('lang', 'Français') == 'English' else 'Sélection de pays (au moins 2)'}:</b>", unsafe_allow_html=True)
 pays_options = sorted(classement_df['Pays'].tolist())
 default_selection = pays_options[:5] if len(pays_options) > 5 else pays_options
+if "selected_countries" not in st.session_state:
+    st.session_state["selected_countries"] = default_selection
 selected_pays = st.multiselect(
-    'Select exactly 5 countries to compare' if lang == 'English' else 'Sélectionne exactement 5 pays à comparer',
+    'Select countries to compare (at least 2)' if st.session_state.get('lang', 'Français') == 'English' else 'Sélectionne des pays à comparer (au moins 2)',
     options=pays_options,
-    default=default_selection,
+    default=st.session_state["selected_countries"],
     key='select_countries'
 )
-if len(selected_pays) != 5:
-    st.warning('Please select exactly 5 countries.' if lang == 'English' else 'Merci de sélectionner exactement 5 pays.')
+# On évite de réinitialiser la sélection si elle n'a pas changé
+if set(selected_pays) != set(st.session_state["selected_countries"]):
+    st.session_state["selected_countries"] = selected_pays
+selected_pays = st.session_state["selected_countries"]
+if len(selected_pays) < 2:
+    st.warning('Please select at least 2 countries.' if st.session_state.get('lang', 'Français') == 'English' else 'Merci de sélectionner au moins 2 pays.')
     filtered_df = pd.DataFrame(columns=classement_df.columns)
 else:
     filtered_df = classement_df[classement_df['Pays'].isin(selected_pays)]
-fig = px.bar(
-    filtered_df,
-    x="Indice ODD",
-    y="Pays",
-    orientation="h",
-    color="Indice ODD",
-    color_continuous_scale="Blues",
-    labels={"Indice ODD": "Score ODD", "Pays": "Pays"},
-    title="SDG Index Ranking (real-time data)" if lang == "English" else "Classement ODD (données en temps réel)"
-)
-fig.update_layout(yaxis={'categoryorder':'total ascending'}, height=600, margin=dict(l=0, r=0, t=40, b=0))
-st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
-st.dataframe(filtered_df, hide_index=True, use_container_width=True)
+    fig = px.bar(
+        filtered_df,
+        x="Indice ODD",
+        y="Pays",
+        orientation="h",
+        color="Indice ODD",
+        color_continuous_scale="Blues",
+        labels={"Indice ODD": "Score ODD", "Pays": "Pays"},
+        title="SDG Index Ranking (real-time data)" if st.session_state.get('lang', 'Français') == 'English' else "Classement ODD (données en temps réel)"
+    )
+    fig.update_layout(yaxis={'categoryorder':'total ascending'}, height=600, margin=dict(l=0, r=0, t=40, b=0))
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
+    st.dataframe(filtered_df, hide_index=True, use_container_width=True)
 
 st.markdown(f"## {'Ask your question 👇' if lang == 'English' else 'Pose ta question 👇'}")
 
@@ -372,13 +408,12 @@ else:
     st.sidebar.markdown("**🌍 Cet outil vous aide à découvrir et agir pour les 17 Objectifs de Développement Durable.**")
     st.sidebar.info("Vos questions et vos actions comptent pour un monde meilleur à l’horizon 2030.")
 
+
 # Bouton pour effacer l'historique
 if st.sidebar.button("🗑️ Effacer l'historique"):
     st.session_state.messages = []
-    st.rerun()
 
 # Bouton pour effacer le cache
 if st.sidebar.button("🧹 Effacer le cache"):
     clear_cache()
     st.sidebar.success("✅ Cache effacé ! Le prochain démarrage sera plus lent.")
-    st.rerun()  
