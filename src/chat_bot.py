@@ -1,5 +1,5 @@
 """
-chat_bot.py - Main logic for the SDG Chatbot
+chat_bots.py - Main logic for the SDG Chatbot
 
 This module handles search logic, matching, fallback, cache management, and integration with Haystack and Sentence Transformers.
 

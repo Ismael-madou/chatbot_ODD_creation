@@ -2,7 +2,7 @@
 
 # All imports at the very top
 from chat_bot import chercher_odd, formater_reponse_odd, clear_cache, get_cache_info
-from sentence_transformers import SentenceTransformer, util
+# from sentence_transformers import SentenceTransformer, util
 from sdg_data import SDGDataLoader
 import streamlit as st
 import os

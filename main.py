@@ -13,5 +13,10 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "demo":
         run_demo()
     else:
-        # Import and run the Streamlit app (src/app.py) if launched via streamlit run main.py
-        import src.app
+         pass
+         # import src.app
+         # Import and run the Streamlit app (src/app.py) if launched via streamlit run main.py
+
+
+
+
