@@ -417,4 +417,5 @@ def get_cache_info() -> Dict[str, Any]:
     return {"error": "model_cache non disponible"}
 
 # Initialisation automatique au chargement du module
-initialize_chatbot()
+if __name__ == "__main__":
+    initialize_chatbot()
