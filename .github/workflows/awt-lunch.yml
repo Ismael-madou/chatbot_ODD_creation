@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ awt ]     # déclenche la CI sur chaque push vers awt
+  pull_request:
+    branches: [ main ]    # déclenche aussi quand tu fais une PR vers main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -q
