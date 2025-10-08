@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ awt ]     # déclenche la CI sur chaque push vers awt
+    branches: [ awt ]
   pull_request:
-    branches: [ main ]    # déclenche aussi quand tu fais une PR vers main
+    branches: [ main ]
 
 jobs:
   tests:
@@ -22,6 +22,9 @@ jobs:
 
       - name: Install deps
         run: pip install -r requirements.txt
+
+      - name: Install test tools
+        run: pip install pytest
 
       - name: Run tests
         run: pytest -q
