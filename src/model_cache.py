@@ -12,7 +12,17 @@ This module manages saving, loading, and cache handling for SentenceTransformer 
 """
 
 # All imports at the very top
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer  # type: ignore
+except Exception:
+    SentenceTransformer = None
+
+def _require_st():
+    if SentenceTransformer is None:
+        raise RuntimeError(
+            "sentence-transformers not available. Please install sentence transformer first. "
+        )
+
 from haystack.document_stores import InMemoryDocumentStore
 from haystack.nodes import BM25Retriever
 import pickle
@@ -83,6 +93,7 @@ class ModelCache:
         Returns:
             Optional[SentenceTransformer]: Loaded model or None.
         """
+        _require_st()
         cache_path = self._get_cache_path(f"{model_name}.pkl")
         try:
             if os.path.exists(cache_path):

@@ -15,7 +15,11 @@ Global variables:
 """
 
 # All 'from ... import ...' statements at the top
-from sentence_transformers import SentenceTransformer, util
+try:
+    from sentence_transformers import SentenceTransformer, util  # type: ignore
+except Exception:
+    SentenceTransformer = None
+    util = None
 from haystack.document_stores import InMemoryDocumentStore
 from haystack.nodes import BM25Retriever
 from transformers import pipeline
@@ -41,6 +45,17 @@ odds: Optional[List[Dict[str, Any]]] = None
 faq: Optional[List[Dict[str, Any]]] = None
 odd_documents: Optional[List[str]] = None
 odd_embeddings: Any = None
+
+def _require_st():
+    """verify if sentence-transformers is available ?"""
+    if SentenceTransformer is None:
+        raise RuntimeError(
+            "Not available. Please install SentenceTransformer first. "
+        )
+
+def _get_model(name: str = "all-MiniLM-L6-v2"):
+    _require_st()
+    return SentenceTransformer(name)
 
 # Load the local LLM pipeline only once
 _llm_pipeline = None
@@ -120,7 +135,7 @@ def initialize_chatbot() -> None:
     if model is None and SentenceTransformer is not None:
         try:
             print("📥 Téléchargement du modèle ultra-léger depuis HuggingFace...")
-            model = SentenceTransformer("all-MiniLM-L6-v2")
+            model = _get_model("all-MiniLM-L6-v2")
             if model_cache and hasattr(model_cache, 'save_model'):
                 model_cache.save_model(model)
         except Exception as e:
@@ -261,6 +276,7 @@ def chercher_odd(question: str, lang: str = "Français") -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Les données de l'ODD ou de la FAQ la plus pertinente.
     """
+    _require_st()
     if not odds:
         print("[LOG] Aucune donnée ODD disponible.")
         return {"error": "Aucune donnée ODD disponible."}
