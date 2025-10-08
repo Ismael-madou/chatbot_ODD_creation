@@ -16,10 +16,13 @@ Global variables:
 
 # All 'from ... import ...' statements at the top
 try:
-    from sentence_transformers import SentenceTransformer, util  # type: ignore
-except Exception:
+    from sentence_transformers import SentenceTransformer, util  # util n'est pas nécessaire dans model_cache.py
+except ImportError:
     SentenceTransformer = None
-    util = None
+    try:
+        util
+    except NameError:
+        util = None
 from haystack.document_stores import InMemoryDocumentStore
 from haystack.nodes import BM25Retriever
 from transformers import pipeline

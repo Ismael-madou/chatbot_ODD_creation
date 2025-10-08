@@ -13,9 +13,13 @@ This module manages saving, loading, and cache handling for SentenceTransformer 
 
 # All imports at the very top
 try:
-    from sentence_transformers import SentenceTransformer  # type: ignore
-except Exception:
+    from sentence_transformers import SentenceTransformer, util  # util n'est pas nécessaire dans model_cache.py
+except ImportError:
     SentenceTransformer = None
+    try:
+        util  # noqa: F401
+    except NameError:
+        util = None
 
 def _require_st():
     if SentenceTransformer is None:
