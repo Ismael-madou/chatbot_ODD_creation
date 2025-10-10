@@ -76,4 +76,5 @@ chatbot_ODD_creation/
 
 ## 👨‍💻 Auteurs
 - Ismael Madou
+- Abdoulaye Wade Toure
 - Contributions bienvenues !
